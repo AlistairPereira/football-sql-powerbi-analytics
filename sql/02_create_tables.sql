@@ -161,7 +161,7 @@ foreign key(home_team_id) references dim_team(team_id),
 foreign key(away_team_id) references dim_team(team_id)
 );
 
-#----------------------insert fcat_matches_clean----------------------
+#----------------------insert fact_matches_clean----------------------
 
 insert into fact_matches_clean (league_id,season_id,date_id,home_team_id,away_team_id,match_time,home_goals,away_goals,result,
     half_time_home_goals,half_time_away_goals,half_time_result,referee,home_shots,away_shots,home_shots_target,away_shots_target,

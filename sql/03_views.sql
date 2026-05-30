@@ -58,3 +58,57 @@ order by points desc, goal_difference desc, goals_for desc) as league_position
  from team_summary;
  
  select * from vw_league_points_table;
+
+  #----------------------------------------view for weekly goals data----------------------------------------------------------------
+ select * from dim_date;
+ 
+ with season_start as 
+ (
+	 select fm.league_id,
+			fm.season_id,
+			min(dd.full_date) AS season_start_date
+			from fact_matches_clean as fm
+	 join dim_date as dd on fm.date_id = dd.date_id
+	 group by fm.league_id, fm.season_id
+	 ),
+     team_match_rows as (
+	 select dl.league_name, ds.season,
+	 dd.full_date ,dd.year_num,dd.month_num, dd.month_name,
+	floor(datediff(dd.full_date, ss.season_start_date) / 7) + 1 as season_week,
+	 ht.team_name,
+	 fm.home_goals as goals_for,
+	 fm.away_goals as goals_against ,
+	 fm.home_goals - fm.away_goals as goal_difference
+	 from fact_matches_clean as fm
+	 join dim_league as dl on fm.league_id = dl.league_id
+	 join dim_season as ds on ds.season_id = fm.season_id
+	 join dim_date as dd on fm.date_id = dd.date_id
+	 join dim_team as ht on fm.home_team_id = ht.team_id
+	 join season_start as ss on  fm.league_id = ss.league_id and fm.season_id = ss.season_id
+     union all
+     select dl.league_name, ds.season,
+	 dd.full_date ,dd.year_num,dd.month_num, dd.month_name,
+	floor(datediff(dd.full_date, ss.season_start_date) / 7) + 1 as season_week,
+	 at.team_name,
+	 fm.away_goals as goals_for,
+	 fm.home_goals as goals_against ,
+	fm.away_goals - fm.home_goals  as goal_difference
+	 from fact_matches_clean as fm
+	 join dim_league as dl on fm.league_id = dl.league_id
+	 join dim_season as ds on ds.season_id = fm.season_id
+	 join dim_date as dd on fm.date_id = dd.date_id
+	 join dim_team as at on fm.away_team_id = at.team_id
+	 join season_start as ss on  fm.league_id = ss.league_id and fm.season_id = ss.season_id
+     )
+     select league_name,
+    season,
+    team_name,
+    year_num,
+    month_num,
+    month_name,
+   season_week,
+    count(*) as matches_played,
+    sum(goals_for) as goals_scored,
+    sum(goals_against) as goals_conceded,
+    sum(goal_difference) as goal_difference from team_match_rows
+     group by league_name, season, team_name, year_num, month_num, month_name, season_week;
