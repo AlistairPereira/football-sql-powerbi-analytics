@@ -61,7 +61,7 @@ order by points desc, goal_difference desc, goals_for desc) as league_position
 
   #----------------------------------------view for weekly goals data----------------------------------------------------------------
  select * from dim_date;
- 
+ create view  vw_team_goals_by_month_week as 
  with season_start as 
  (
 	 select fm.league_id,
