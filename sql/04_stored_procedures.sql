@@ -48,3 +48,25 @@ end//
 delimiter ;
 
 call sp_get_team_performance_summary("Arsenal", "2023/24", "English Premier League");
+
+#--------------------------------sp_compare_two_teams--------------------------------
+select * from vw_league_points_table;
+
+drop procedure if exists sp_compare_two_teams;
+
+delimiter //
+create procedure sp_compare_two_teams(in p_league_name varchar(100), in p_season varchar(30),
+in team_1 varchar(50), in team_2 varchar(50))
+begin
+select league_name, season, team_name, won, lost, drawn, points, league_position,
+case
+when points = (select max(points) from vw_league_points_table
+where league_name = p_league_name and season = p_season and team_name in (team_1, team_2)) then "better perfroming team"
+else " lower performing team"
+end as team_status
+ from vw_league_points_table
+where league_name = p_league_name and season = p_season and team_name in (team_1, team_2);
+end//
+delimiter ;
+
+call sp_compare_two_teams("English Premier League", "2023/24", "Arsenal", "Man United");
