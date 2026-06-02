@@ -117,6 +117,7 @@ order by points desc, goal_difference desc, goals_for desc) as league_position
 
 #------------------------------------------------------------------------------
 # view team form trend (W,D,L)
+
 select * from fact_matches_clean;
 
 create view vw_team_match_form as
@@ -182,3 +183,58 @@ select league_name,
     from team_match_rows;
 
 	select * from vw_team_match_form where team_name ="Man United";
+
+
+    #---------------------------------------------------------------------------------------
+-- vw_league_goal_summary
+
+-- This is for league-level comparison.
+
+-- answers:
+-- Which league has most goals?
+-- Which league has highest average goals per match?
+-- Which league has more home wins / away wins / draws?
+
+-- Expected columns:
+-- league_name,season,total_matches,total_goals,avg_goals_per_match,home_goals,away_goals,home_wins,away_wins,draws
+select * from dim_league;
+select * from fact_matches_clean;
+
+
+create view vw_league_goal_summary as
+with season_start as
+(
+	select 
+		fm.league_id, fm.season_id,
+		min(dd.full_date) as season_start_date
+	 from fact_matches_clean as fm
+	join dim_date as dd on fm.date_id = dd.date_id
+	group by fm.league_id, fm.season_id
+)
+	select dl.league_name, ds.season, 
+		dd.full_date as match_date,
+        dd.year_num,
+        dd.month_num, dd.month_name,
+        dd.day_num, dd.day_name,
+        floor(datediff(dd.full_date, ss.season_start_date)/7)+1 as season_week,
+		count(*) as total_matches,
+		sum(fm.home_goals) as total_home_goals,
+		sum(fm.away_goals) as total_away_goals,
+		sum(fm.home_goals) + sum(fm.away_goals) as total_goals,
+		count(case when fm.result = "H" then 1 end) as home_wins,
+		count(case when fm.result = "A" then 1 end) as away_wins,
+		count(case when fm.result = "D" then 1 end) as draws,
+		round((sum(fm.home_goals) + sum(fm.away_goals))/count(*),2) as avg_goals_per_match
+	 from fact_matches_clean as fm
+	join dim_league as dl on fm.league_id = dl.league_id
+	join dim_season as ds on fm.season_id = ds.season_id
+    join season_start as ss on fm.league_id = ss.league_id and fm.season_id = ss.season_id
+    join dim_date as dd on dd.date_id = fm.date_id
+	join dim_team as ht on fm.home_team_id = ht.team_id
+	join dim_team as at on fm.away_team_id = at.team_id
+	group by dl.league_name, ds.season,season_week, dd.full_date,dd.year_num,
+    dd.month_num,
+    dd.month_name,dd.day_num, dd.day_name
+    ;
+
+select * from vw_league_goal_summary;
