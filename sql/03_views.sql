@@ -238,3 +238,95 @@ with season_start as
     ;
 
 select * from vw_league_goal_summary;
+
+#vw_team_attacking_defensive_summary
+-- Why this view 
+-- answer:
+-- Which teams are strongest in attack?,Which teams are strongest defensively?
+-- Which teams are most efficient with shots?,Which teams have best goal difference?
+
+-- Expected output columns
+-- league_name,season,team_name,matches_played,goals_scored,goals_conceded,goal_difference
+-- total_shots,shots_on_target,shot_accuracy_percentage,goal_conversion_percentage
+-- Logic
+-- For home team:
+-- goals_scored = home_goals,goals_conceded = away_goals,total_shots = home_shots,shots_on_target = home_shots_target
+
+-- For away team
+-- goals_scored = away_goals,goals_conceded = home_goals,total_shots = away_shots,shots_on_target = away_shots_target
+
+create view vw_team_attacking_defensive_summary_trend as
+with season_start as
+(
+	select 
+		fm.league_id, fm.season_id,
+		min(dd.full_date) as season_start_date
+	 from fact_matches_clean as fm
+	join dim_date as dd on fm.date_id = dd.date_id
+	group by fm.league_id, fm.season_id
+),
+team_match_rows as 
+(
+	select 
+		dl.league_name,
+		ds.season,
+        dd.full_date as match_date,
+        dd.year_num,
+        dd.month_num, dd.month_name,
+        dd.day_num, dd.day_name,
+        floor(datediff(dd.full_date, ss.season_start_date)/7)+1 as season_week,
+        ht.team_name ,
+		fm.home_goals as goals_scored,
+		fm.away_goals as goals_conceded,
+		fm.home_goals-fm.away_goals as goal_difference,
+		fm.home_shots as total_shots,
+		fm.home_shots_target as shots_on_target
+	  from fact_matches_clean as fm
+	join dim_league as dl on fm.league_id = dl.league_id
+	join dim_season as ds on fm.season_id = ds.season_id
+	join dim_team as ht on fm.home_team_id = ht.team_id
+    join dim_date as dd on fm.date_id = dd.date_id
+    join season_start as ss on ss.league_id = fm.league_id and ss.season_id = fm.season_id
+	union all
+	select 
+		dl.league_name,
+		ds.season,
+        dd.full_date as match_date,
+        dd.year_num,
+        dd.month_num, dd.month_name,
+        dd.day_num, dd.day_name,
+        floor(datediff(dd.full_date, ss.season_start_date)/7)+1 as season_week,
+        at.team_name ,
+		fm.away_goals as goals_scored,
+		fm.home_goals as goals_conceded,
+		fm.away_goals - fm.home_goals as goal_difference,
+		fm.away_shots as total_shots,
+		fm.away_shots_target as shots_on_target
+	  from fact_matches_clean as fm
+	join dim_league as dl on fm.league_id = dl.league_id
+	join dim_season as ds on fm.season_id = ds.season_id
+	join dim_team as at on fm.away_team_id = at.team_id
+    join dim_date as dd on fm.date_id = dd.date_id
+    join season_start as ss on ss.league_id = fm.league_id and ss.season_id = fm.season_id
+)
+	select 
+		league_name, season, team_name, 
+        match_date,
+        year_num,
+        month_num, month_name,
+        day_num, day_name,
+         season_week,
+		sum(goals_scored) as goals_scored, 
+		sum(goals_conceded) as goals_conceded,
+		 sum(goal_difference) as goal_difference,
+		sum(total_shots) as total_shots, 
+		sum(shots_on_target) as shots_on_target,
+		sum(shots_on_target)/nullif(sum(total_shots),0) *100 as shot_accuracy_percentage ,
+		sum(goals_scored)/nullif(sum(shots_on_target),0) *100 goal_conversion_percentage
+	from team_match_rows
+	group by league_name, season, team_name, match_date,
+        year_num,
+        month_num, month_name,
+        day_num, day_name,season_week;
+
+select * from vw_team_attacking_defensive_summary_trend;
