@@ -70,3 +70,38 @@ end//
 delimiter ;
 
 call sp_compare_two_teams("English Premier League", "2023/24", "Arsenal", "Man United");
+
+#--------------------------sp_get_top_teams_by_metric-----------------------------------------------
+select * from vw_team_attacking_defensive_summary_trend;
+
+delimiter //
+create procedure sp_get_top_teams_by_metric(in p_league_name varchar(100), in p_season varchar(100), 
+in p_metric varchar(50), in p_top_n int)
+begin
+select league_name,season, team_name, count(*) as matches_played,
+    sum(goals_scored) as goals_scored,
+    sum(goals_conceded) as goals_conceded,
+    sum(goal_difference) as goal_difference,
+    sum(total_shots) as total_shots,
+    sum(shots_on_target) as shots_on_target,
+    sum(shots_on_target)/nullif(sum(total_shots),0) *100 as shot_accuracy_percentage ,
+	sum(goals_scored)/nullif(sum(shots_on_target),0) *100 goal_conversion_percentage,
+    
+    case p_metric
+    when 'goals_scored' then sum(goals_scored)
+    when 'goal_difference' then sum(goal_difference)
+    when 'shots_on_target' then SUM(shots_on_target)
+    when 'shot accuracy' then sum(shots_on_target)/nullif(sum(total_shots),0) *100
+    when 'goal conversion' then sum(goals_scored)/nullif(sum(shots_on_target),0) *100
+    end as selected_metric_value
+    
+    from vw_team_attacking_defensive_summary_trend
+where league_name = p_league_name and season =p_season
+group by league_name, season, team_name
+order by selected_metric_value desc
+limit p_top_n;
+end//
+delimiter ;
+
+call sp_get_top_teams_by_metric('Bundesliga','2023/24','shots_on_target',10);
+call sp_get_top_teams_by_metric('Bundesliga','2023/24','goals conversion',10);
