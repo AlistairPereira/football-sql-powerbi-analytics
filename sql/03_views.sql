@@ -330,3 +330,60 @@ team_match_rows as
         day_num, day_name,season_week;
 
 select * from vw_team_attacking_defensive_summary_trend;
+
+#--------------------------------------------------------------------
+
+#--------Refree Summary---------------------------------------------
+select * from fact_matches_clean;
+
+create view vw_referee_card_summary as
+select dl.league_name, ds.season, fm.referee,
+count(*) as matches_officiated,
+sum(fm.home_yellow_cards) as home_yellow_cards,
+sum(fm.away_yellow_cards) as away_yellow_cards,
+sum(fm.home_red_cards) as home_red_cards,
+sum(fm.away_red_cards) as away_red_cards,
+sum(fm.home_yellow_cards)+ sum(fm.away_yellow_cards) as yellow_cards,
+sum(fm.home_red_cards) + sum(fm.away_red_cards)  as red_cards,
+sum(fm.home_yellow_cards)+ sum(fm.away_yellow_cards) +sum(fm.home_red_cards) + sum(fm.away_red_cards) as total_cards,
+round((sum(fm.home_yellow_cards)+ sum(fm.away_yellow_cards))/count(*),2) as avg_yellow_cards_per_match,
+round((sum(fm.home_red_cards) + sum(fm.away_red_cards))/ count(*),2) as avg_red_cards_per_match,
+round((sum(fm.home_yellow_cards)+ sum(fm.away_yellow_cards) +sum(fm.home_red_cards) + sum(fm.away_red_cards))/count(*),2) as avg_cards_per_match
+ from fact_matches_clean as fm
+join dim_league as dl on fm.league_id = dl.league_id
+join dim_season as ds on fm.season_id = ds.season_id
+group by fm.league_id, fm.season_id,fm.referee;
+
+#------------------------------vw_referee_card_summary_week-----------------------------------------------------
+
+create view vw_referee_card_summary_week as
+with season_start as (
+	select 
+		fm.league_id,
+		fm.season_id,
+		min(dd.full_date) as season_start_date
+	 from fact_matches_clean as fm
+	join dim_date as dd on fm.date_id = dd.date_id
+	group by fm.league_id , fm.season_id
+    )
+select dl.league_name, ds.season, fm.referee,
+dd.full_date, dd.year_num, dd.month_num, dd.month_name, dd.day_num, dd.day_name,
+floor(datediff(dd.full_date, ss.season_start_date)/7)+1 as season_week,
+count(*) as matches_officiated,
+sum(fm.home_yellow_cards) as home_yellow_cards,
+sum(fm.away_yellow_cards) as away_yellow_cards,
+sum(fm.home_red_cards) as home_red_cards,
+sum(fm.away_red_cards) as away_red_cards,
+sum(fm.home_yellow_cards)+ sum(fm.away_yellow_cards) as yellow_cards,
+sum(fm.home_red_cards) + sum(fm.away_red_cards)  as red_cards,
+sum(fm.home_yellow_cards)+ sum(fm.away_yellow_cards) +sum(fm.home_red_cards) + sum(fm.away_red_cards) as total_cards,
+round((sum(fm.home_yellow_cards)+ sum(fm.away_yellow_cards))/count(*),2) as avg_yellow_cards_per_match,
+round((sum(fm.home_red_cards) + sum(fm.away_red_cards))/ count(*),2) as avg_red_cards_per_match,
+round((sum(fm.home_yellow_cards)+ sum(fm.away_yellow_cards) +sum(fm.home_red_cards) + sum(fm.away_red_cards))/count(*),2) as avg_cards_per_match
+ from fact_matches_clean as fm
+join dim_league as dl on fm.league_id = dl.league_id
+join dim_season as ds on fm.season_id = ds.season_id
+join season_start as ss on fm.season_id = ss.season_id and fm.league_id = ss.league_id
+join dim_date as dd on fm.date_id = dd.date_id
+group by fm.league_id, fm.season_id,fm.referee,dd.full_date, dd.year_num, dd.month_num, dd.month_name, dd.day_num, dd.day_name,
+floor(datediff(dd.full_date, ss.season_start_date)/7)+1;
