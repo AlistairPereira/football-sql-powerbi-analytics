@@ -105,3 +105,21 @@ delimiter ;
 
 call sp_get_top_teams_by_metric('Bundesliga','2023/24','shots_on_target',10);
 call sp_get_top_teams_by_metric('Bundesliga','2023/24','goals conversion',10);
+
+
+#----------Get top N biggest wins by league, season, and match result type-------------
+
+delimiter //
+create procedure sp_get_top_biggest_wins( in p_league_name varchar(100), in p_season varchar(100), in p_top_n int)
+begin
+select league_name, season, full_date, home_team, away_team,
+home_goals, away_goals,winner, loser, goal_margin, match_result_type
+ from vw_biggest_win
+where league_name = p_league_name and season = p_season and match_result_type != 'draw'
+order by goal_margin desc, home_goals+away_goals desc
+limit p_top_n;
+end//
+delimiter ;
+drop procedure if exists sp_get_top_biggest_wins;
+
+call sp_get_top_biggest_wins("Ligue 1", "2023/24", 5);

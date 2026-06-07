@@ -387,3 +387,46 @@ join season_start as ss on fm.season_id = ss.season_id and fm.league_id = ss.lea
 join dim_date as dd on fm.date_id = dd.date_id
 group by fm.league_id, fm.season_id,fm.referee,dd.full_date, dd.year_num, dd.month_num, dd.month_name, dd.day_num, dd.day_name,
 floor(datediff(dd.full_date, ss.season_start_date)/7)+1;
+
+
+#--------------identify biggest wins---------------------------------
+
+create view vw_biggest_win as
+with team_data as 
+(
+	select dl.league_name, ds.season, dd.full_date,
+	ht.team_name as home_team ,
+	at.team_name as away_team,
+	fm.home_goals as home_goals,
+	fm.away_goals as away_goals
+	from fact_matches_clean as fm
+	join dim_league as dl on fm.league_id = dl.league_id
+	join dim_season as ds on fm.season_id = ds.season_id
+	join dim_date as dd on fm.date_id = dd.date_id
+	join dim_team as ht on fm.home_team_id = ht.team_id
+	join dim_team as at on fm.away_team_id = at.team_id 
+)
+	select *,
+	case
+		when home_goals > away_goals then home_team 
+		when away_goals > home_goals then away_team 
+		else "draw"
+		end as winner,
+	case 
+		when home_goals < away_goals then home_team
+		when away_goals < home_goals then away_team
+		else "draw"
+		end as loser,
+	abs(home_goals- away_goals) as goal_margin,
+	case
+		when home_goals = away_goals then "draw"
+		when abs(home_goals- away_goals) >= 4 then "big win"
+		when abs(home_goals- away_goals) >=2 then "comfortable win"
+		else "Narrow win"
+		end as match_result_type
+	from team_data;
+ 
+ select * from vw_biggest_win
+ where match_result_type <> 'draw'
+ order by goal_margin desc
+ limit 10;
